@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI CV Screening - Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 22px; font-weight: 600; }
+    .header span { font-size: 13px; opacity: 0.7; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .stat-card .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 4px; }
+    .stat-card .value { font-size: 32px; font-weight: 700; }
+    .stat-card .value.green { color: #10b981; }
+    .stat-card .value.blue { color: #3b82f6; }
+    .stat-card .value.yellow { color: #f59e0b; }
+    .stat-card .value.red { color: #ef4444; }
+    .stat-card .value.purple { color: #8b5cf6; }
+    .stat-card .value.gray { color: #6b7280; }
+    .section { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
+    .section-header { padding: 16px 24px; border-bottom: 1px solid #e5e7eb; font-weight: 600; font-size: 16px; display: flex; align-items: center; justify-content: space-between; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 12px 16px; font-size: 12px; text-transform: uppercase; color: #888; letter-spacing: 0.5px; background: #f9fafb; }
+    td { padding: 12px 16px; border-top: 1px solid #f3f4f6; font-size: 14px; }
+    tr:hover { background: #f9fafb; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .badge-new { background: #dbeafe; color: #1d4ed8; }
+    .badge-screening { background: #fef3c7; color: #b45309; }
+    .badge-screened { background: #d1fae5; color: #047857; }
+    .badge-shortlisted { background: #e0e7ff; color: #4338ca; }
+    .badge-interview { background: #fce7f3; color: #be185d; }
+    .badge-rejected { background: #fee2e2; color: #b91c1c; }
+    .badge-hired { background: #d1fae5; color: #065f46; }
+    .score-bar { display: inline-block; height: 6px; border-radius: 3px; margin-right: 8px; }
+    .loading { text-align: center; padding: 48px; color: #888; }
+    .loading::after { content: '...'; animation: dots 1.5s steps(4) infinite; }
+    @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
+    .error { background: #fee2e2; color: #b91c1c; padding: 12px 24px; border-radius: 8px; margin-bottom: 16px; display: none; }
+    .status-select { padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+    .time { font-size: 12px; color: #9ca3af; }
+    .kanban { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .kanban-col { background: #f3f4f6; border-radius: 8px; padding: 12px; min-height: 120px; }
+    .kanban-col h3 { font-size: 13px; margin-bottom: 8px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+    .kanban-item { background: #fff; border-radius: 6px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>📋 AI CV Screening</h1>
+      <span>Hệ thống sàng lọc hồ sơ thông minh</span>
+    </div>
+    <div style="text-align:right">
+      <div id="health" style="font-size:13px">🔌 Connecting...</div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="error" id="error"></div>
+
+    <div class="stats-grid" id="stats">
+      <div class="stat-card"><div class="label">Tổng hồ sơ</div><div class="value gray" id="stat-total">-</div></div>
+      <div class="stat-card"><div class="label">Mới</div><div class="value blue" id="stat-new">-</div></div>
+      <div class="stat-card"><div class="label">Đã sàng lọc</div><div class="value green" id="stat-screened">-</div></div>
+      <div class="stat-card"><div class="label">Phỏng vấn</div><div class="value purple" id="stat-interview">-</div></div>
+      <div class="stat-card"><div class="label">Không phù hợp</div><div class="value red" id="stat-rejected">-</div></div>
+      <div class="stat-card"><div class="label">Đã tuyển</div><div class="value green" id="stat-hired">-</div></div>
+    </div>
+
+    <div class="section" id="applications-section">
+      <div class="section-header">
+        <span>📄 Hồ sơ ứng viên</span>
+        <select class="status-select" id="status-filter" onchange="loadApplications()">
+          <option value="">Tất cả</option>
+          <option value="new">Mới</option>
+          <option value="screening">Đang xử lý</option>
+          <option value="screened">Đã sàng lọc</option>
+          <option value="shortlisted">Triển vọng</option>
+          <option value="interview">Phỏng vấn</option>
+          <option value="rejected">Không phù hợp</option>
+          <option value="hired">Đã tuyển</option>
+        </select>
+      </div>
+      <div id="applications-list" class="loading">Đang tải</div>
+    </div>
+  </div>
+
+  <script>
+    const API = '';
+
+    async function fetchAPI(path, opts = {}) {
+      const res = await fetch(`${API}${path}`, {
+        headers: { 'Content-Type': 'application/json', ...opts.headers },
+        ...opts,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || 'API error');
+      }
+      return res.json();
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error');
+      el.textContent = '❌ ' + msg;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 5000);
+    }
+
+    function getBadgeClass(status) {
+      const map = {
+        'new': 'badge-new',
+        'screening': 'badge-screening',
+        'screened': 'badge-screened',
+        'shortlisted': 'badge-shortlisted',
+        'interview': 'badge-interview',
+        'offered': 'badge-shortlisted',
+        'hired': 'badge-hired',
+        'rejected': 'badge-rejected',
+        'withdrawn': 'badge-rejected',
+      };
+      return map[status] || 'badge-new';
+    }
+
+    function getStatusText(status) {
+      const map = {
+        'new': 'Mới',
+        'screening': 'Đang xử lý',
+        'screened': 'Đã sàng lọc',
+        'shortlisted': 'Triển vọng',
+        'interview': 'Phỏng vấn',
+        'offered': 'Đã offer',
+        'hired': 'Đã tuyển',
+        'rejected': 'Không phù hợp',
+        'withdrawn': 'Rút lui',
+      };
+      return map[status] || status;
+    }
+
+    function getScoreColor(score) {
+      if (score >= 80) return '#10b981';
+      if (score >= 60) return '#3b82f6';
+      if (score >= 40) return '#f59e0b';
+      return '#ef4444';
+    }
+
+    function getRecText(rec) {
+      const map = { 'interview': '✅ PV', 'shortlist': '⭐ Triển vọng', 'review': '👀 Xem xét', 'reject': '❌ Từ chối' };
+      return map[rec] || rec;
+    }
+
+    async function loadStats() {
+      try {
+        const stats = await fetchAPI('/api/stats');
+        document.getElementById('stat-total').textContent = stats.total_candidates || 0;
+        document.getElementById('stat-new').textContent = stats.new || 0;
+        document.getElementById('stat-screened').textContent = stats.screened || 0;
+        document.getElementById('stat-interview').textContent = stats.interview || 0;
+        document.getElementById('stat-rejected').textContent = stats.rejected || 0;
+        document.getElementById('stat-hired').textContent = stats.hired || 0;
+      } catch (err) {
+        console.error('Stats error:', err);
+      }
+    }
+
+    async function loadApplications() {
+      const list = document.getElementById('applications-list');
+      const status = document.getElementById('status-filter').value;
+      list.className = 'loading';
+      list.textContent = 'Đang tải';
+      list.innerHTML = '<div class="loading">Đang tải</div>';
+
+      try {
+        const apps = await fetchAPI(`/api/applications${status ? '?status=' + status : ''}`);
+
+        if (apps.length === 0) {
+          list.innerHTML = '<div style="text-align:center;padding:32px;color:#888">Chưa có hồ sơ nào</div>';
+          return;
+        }
+
+        let html = `<table>
+          <thead><tr>
+            <th>Ứng viên</th>
+            <th>Vị trí</th>
+            <th>Trạng thái</th>
+            <th>Điểm</th>
+            <th>Gợi ý</th>
+            <th>Ngày</th>
+          </tr></thead><tbody>`;
+
+        for (const app of apps) {
+          const candidate = app.candidates || {};
+          const job = app.jobs || {};
+          const name = candidate.full_name || 'Unknown';
+          const email = candidate.email || '';
+          const jobTitle = job.title || 'Unknown';
+          const status = app.status || 'new';
+          const createdAt = new Date(app.created_at).toLocaleDateString('vi-VN');
+
+          let scoreHtml = '-';
+          let recHtml = '-';
+
+          try {
+            const detail = await fetchAPI(`/api/applications/${app.id}`);
+            if (detail.screening) {
+              const s = detail.screening;
+              scoreHtml = `<span style="color:${getScoreColor(s.score)};font-weight:600">${s.score}</span>`;
+              recHtml = `<span style="color:${getScoreColor(s.score)};font-size:12px">${getRecText(s.recommendation)}</span>`;
+            }
+          } catch {}
+
+          html += `<tr>
+            <td><strong>${name}</strong><br><span style="font-size:12px;color:#888">${email}</span></td>
+            <td>${jobTitle}</td>
+            <td><span class="badge ${getBadgeClass(status)}">${getStatusText(status)}</span></td>
+            <td>${scoreHtml}</td>
+            <td>${recHtml}</td>
+            <td class="time">${createdAt}</td>
+          </tr>`;
+        }
+
+        html += '</tbody></table>';
+        list.innerHTML = html;
+        list.className = '';
+      } catch (err) {
+        list.innerHTML = `<div style="text-align:center;padding:32px;color:#ef4444">❌ ${err.message}</div>`;
+      }
+    }
+
+    async function checkHealth() {
+      try {
+        const h = await fetchAPI('/api/health');
+        document.getElementById('health').innerHTML = `🟢 Online · v${h.version}`;
+      } catch {
+        document.getElementById('health').innerHTML = '🔴 Offline';
+      }
+    }
+
+    // Init
+    checkHealth();
+    loadStats();
+    loadApplications();
+
+    // Auto refresh every 30s
+    setInterval(() => { loadStats(); loadApplications(); }, 30000);
+  </script>
+</body>
+</html>
